@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title id="title_playing">音乐播放</title>
+
+	<!-- link rel="stylesheet" type="text/css" href="./css/AudioPlayer.css"/ -->
+	<!-- script language="JavaScript" src="./js/AudioPlayer.js"></script -->
+</head>
+
+<body>
+	<div class="top" id="top"">
+		<h1>音乐播放器</h1>
+		<!--播放器-->
+		<form name="selecter">
+			<input type="file" name="selFile" id="selFile"  style="display:none" multiple="multiple" onchange="selected(this.id)"/>
+			<a href="JavaScript:Void(0)" onclick="document.selecter.selFile.click()">添加文件</a>
+			
+			<a id="play_next" href="JavaScript:Void(0)" onclick="onPlayNext()">下一首</a>
+			<a id="play_pre" href="JavaScript:Void(0)" onclick="onPlayPre()">上一首</a>
+		</form>
+	</div>
+
+	<hr />
+
+	<!--歌曲信息 -->
+	<div  class="info" id="info">
+		<input id="fname" name="fname" readonly="readonly"></input>
+	</div>
+
+	<!--HTML 5 audio plyer-->
+	<div class="audioplayer" id="audioplayer">
+		<audio class="ctls" id="ctls" controls="controls" onended="onPlayEnd()">
+		</audio>
+	</div>
+
+	<!--歌曲列表-->
+	<div class="playlist" id="playlist">
+		<!--legend>²¥·ÅÁÐ±í</legend-->
+		<table>
+			<tr>
+				<th>歌曲</th>
+				<th>歌手</th>
+			</tr>
+
+			<tbody id="list"></tbody>
+		</table>
+		<form id="playMode" name="playMode">
+			<input type="radio" name="mode" id="order" value="order" onchange="updatePlayMode(this.id)"/>
+			<label id="lb_order" for="order" >顺序播放</label>
+			<input type="radio" name="mode" id="random" value="random" onchange="updatePlayMode(this.id)"/>
+			<label id="lb_random" for="random">随机播放</label>
+			<input type="radio" name="mode" id="loop" value="loop" onchange="updatePlayMode(this.id)" />
+			<label id="lb_loop"for="loop">循环播放</label>
+			<input type="radio" name="mode" id="loop-self" value="loop-self" onchange="updatePlayMode(this.id)"/>
+			<label id="lb_loop-self" for="loop-self">单曲播放</label>
+		</form>
+	</div>
+
+	<br />
+	<hr />
+
+	<!--版权信息-->
+	<div class="copyright" id="copyright">
+		<p>Copyright (C) Byng Zeng</p>
+		<p>Audio Player 1.0.0</p>
+	</div>
+	
+	
+     <style>
+		.top {
+			color: red;
+			text-align: center;
+		}
+
+		#play_next {
+			float: left;
+		}
+
+		#play_pre {
+			float: right;
+		}
+
+		.copyright {
+			color: green;
+			text-align: center;
+		}
+
+		#fname {
+			border: 0px;
+			text-align: center;
+			font-size: 18px;
+			width: 100%;
+		}
+
+		audio {
+			width: 100%;
+		}
+
+		table {
+			border-collapse: collapse;
+			width: 100%;
+		}
+
+		th {
+			background-color: skyblue;
+		}
+
+		table,th,td{
+			border: 1px solid black;
+			margin: 0px;
+		}
+
+		#playMode {
+			float: right;
+		}
+	 </style>
+	 
+	 <script>
+		var Library = new Library();
+
+		function Library() {
+			var obj = new Object();
+
+			obj.files=new Array();
+			obj.total = 0;
+			obj.cur = 0;
+			obj.history = new Array();
+			obj.historyPos = 0;
+			obj.mode = null;
+
+			return obj;
+		}
+
+		function updateLibrary(fs) {
+			for (var i = 0; i < fs.files.length; i++) {
+				Library.files[Library.total + i] = fs.files[i]; //添加到播放列表
+			}
+			updatePlaylist(fs); //更新播放列表
+
+			Library.total += fs.files.length;
+		}
+
+		function updatePlaylist(fs) {
+			var list = document.getElementById('list');
+			var len = list.rows.length;
+			var f=null;
+			var author="unknown";
+			var newRow;
+			var id = 0;
+			for (var i= 0; i < fs.files.length; i++) {
+				f=Library.files[Library.total + i];  //添加歌曲
+				author="unknown";
+				newRow = list.insertRow(len++);  //播放歌曲列表
+				id = Library.total + i;
+				newRow.insertCell(0).innerHTML = '<a href=\"JavaScript:onClickPlay(' + id + ')\">' + f.name.replace(/.mp3/, "") + '</a>';
+				newRow.insertCell(1).innerHTML = author;
+			}
+		}
+
+		function updateHistory(id) {
+			if (Library.history[Library.historyPos] != id)
+				Library.history[Library.historyPos++] = id;
+		}
+		
+		function selected(id) {
+			//更新播放列表
+			updateLibrary(document.getElementById(id));
+			//更新播放方式
+			if (Library.mode == null) {
+				document.getElementById('order').checked="checked";
+				updatePlayMode("order");
+			}
+		}
+
+		function updatePlayingInfo(id) {
+			document.getElementById('fname').value=Library.files[id].name;
+		}
+
+		function onPlay(id) {
+		    document.getElementById('title_playing').text=Library.files[id].name.replace(/.mp3/, "");
+			var reader=new FileReader();
+			reader.readAsDataURL(Library.files[id]);
+			reader.onload=function(e) {
+				var ctls=document.getElementById('ctls');
+				ctls.src=this.result;
+				//更新播放信息
+				updatePlayingInfo(id);
+				Library.cur = id;
+				//播放
+				ctls.play();
+			}
+		}
+		
+		function onClickPlay(id) {
+			updateHistory(id);
+			onPlay(id);
+		}
+		
+		function onPlayNext() {
+			var id = 0;
+			switch(Library.mode) {
+				case "order": { //顺序播放
+					if (Library.cur < Library.total) {
+						id=Library.cur+1;
+					}
+					break;
+				}
+				case "random": {  //随机播放
+					id=Math.round(Math.random() * Library.total);
+					break;
+				}
+				case "loop": {  //全部循环
+					id=(Library.cur + 1) % Library.total;
+					break;
+				}
+				case "loop-self": {  //单曲循环
+					id=Library.cur;
+					break;
+				}
+			}
+			updateHistory(id);
+			onPlay(id);
+		}
+		
+		function onPlayPre() {
+			if (Library.historyPos != 0)
+				Library.historyPos--;
+			
+			onPlay(Library.historyPos);
+		}
+
+		function onPlayEnd() {
+			onPlayNext()
+		}
+
+		function updatePlayMode(id) {
+			document.getElementById('lb_' + id).style.fontWeight="bold";
+			document.getElementById('lb_' + id).style.color="green";
+			if (Library.mode != null) {
+				document.getElementById('lb_' + Library.mode).style.fontWeight="normal";
+				document.getElementById('lb_' + Library.mode).style.color="black";
+			}
+			Library.mode = document.getElementById(id).value;
+
+		}
+	 </script>
+</body>
+</html> 
